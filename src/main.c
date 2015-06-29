@@ -1,20 +1,41 @@
 #include <pebble.h>
+#include <time.h>
 
 #define KEY_CURRENT_COUNT 0
+#define KEY_CURRENT_TIME 1
   
 Window *window;
 TextLayer *s_count_layer;
 TextLayer *s_fetch_layer;
+TextLayer *s_time_layer;
 TextLayer *s_title_layer;
 static char installs_layer_buffer[8];
 static char installs_buffer[8];
+static char time_buffer[16];
 GFont *title_font;
 GFont *count_font;
 
-static void update_count(int count) {
+static void set_fetching(bool fetching, bool failed) {
+    if (fetching)
+        text_layer_set_text(s_fetch_layer, "fetching");
+    else if (failed)
+        text_layer_set_text(s_fetch_layer, "failed");
+    else
+        text_layer_set_text(s_fetch_layer, "");
+}
+
+static void update_count(int count, unsigned prevtime) {
+    set_fetching(false, false);
     snprintf(installs_buffer, sizeof(installs_buffer), "%d", count);
     snprintf(installs_layer_buffer, sizeof(installs_layer_buffer), "%s", installs_buffer);
     text_layer_set_text(s_count_layer, installs_layer_buffer);
+    
+    unsigned curtime = time(NULL);
+    unsigned timediff = curtime - prevtime;
+    int hours = timediff / 3600;
+    int minutes = (timediff - (hours * 3600)) / 60;
+    snprintf(time_buffer, sizeof(time_buffer), "%02d:%02d ago", hours, minutes);
+    text_layer_set_text(s_time_layer, time_buffer);
 }
 
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
@@ -22,6 +43,7 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   int predicted_time = -1;
   int predicted_count = -1;
   int current_count = -1;
+  int current_time = -1;
   
   // For all items
   while(t != NULL) {
@@ -29,6 +51,9 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     switch(t->key) {
       case KEY_CURRENT_COUNT:
         current_count = (int)t->value->int32;
+        break;
+      case KEY_CURRENT_TIME:
+        current_time = (int)t->value->int32;
         break;
     default:
       APP_LOG(APP_LOG_LEVEL_ERROR, "Key %d not recognized!", (int)t->key);
@@ -39,8 +64,8 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     t = dict_read_next(iterator);
   }
   
-  if (current_count >= 0) {
-    update_count(current_count);
+  if (current_count >= 0 && current_time >= 0) {
+    update_count(current_count, current_time);
   }
 }
 
@@ -49,7 +74,8 @@ static void inbox_dropped_callback(AppMessageResult reason, void *context) {
 }
 
 static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
-  APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send failed!");
+    set_fetching(false, true);
+    APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send failed!");
 }
 
 static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
@@ -100,12 +126,24 @@ static Window *create_plugin_window(char *title) {
     text_layer_set_size(s_count_layer, GSize(144, used_height));
   
     // Loading indicator
-    s_fetch_layer = text_layer_create(CGRect(0, window_size.h - 10, window_size.w, 10));
+    s_fetch_layer = text_layer_create(GRect(0, window_size.h - 20, window_size.w, 20));
+    text_layer_set_text_alignment(s_fetch_layer, GTextAlignmentLeft);
+    text_layer_set_background_color(s_fetch_layer, GColorClear);
+    text_layer_set_text_color(s_fetch_layer, GColorDarkGray);
     text_layer_set_text(s_fetch_layer, "fetched");
+    
+    // Display of last update time
+    s_time_layer = text_layer_create(GRect(0, window_size.h - 16, window_size.w, 16));
+    text_layer_set_text_alignment(s_time_layer, GTextAlignmentRight);
+    text_layer_set_background_color(s_time_layer, GColorClear);
+    text_layer_set_text_color(s_time_layer, GColorDarkGray);
+    text_layer_set_text(s_time_layer, "1h ago");
 
     // Add to window
     layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_title_layer));
     layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_count_layer));
+    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_fetch_layer));
+    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_time_layer));
     
     return window;
 }
@@ -114,6 +152,7 @@ void handle_init(void) {
     window = create_plugin_window("Happening against Humanity");
     window_stack_push(window, true);
 
+    set_fetching(true, false);
     app_message_register_inbox_received(inbox_received_callback);
     app_message_register_inbox_dropped(inbox_dropped_callback);
     app_message_register_outbox_failed(outbox_failed_callback);

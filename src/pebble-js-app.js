@@ -13,10 +13,13 @@ var apiRequest = function (action, type, callback) {
 
 getCurrentInstalls = function() {
     var url = API_ADDRESS + 'current';
-    apiRequest('current', 'GET', function(count) {
-        console.log('Got installs: ' + count);
+    apiRequest('current', 'GET', function(data) {
+        console.log('Got data:', data);
+        json = JSON.parse(data);
+        console.log('Got installs: ' + json.count);
         var data = {
-          'KEY_CURRENT_COUNT': +count
+            'KEY_CURRENT_COUNT': +json.count,
+            'KEY_CURRENT_TIME': Math.floor((+json.time)/1000)
         }
         Pebble.sendAppMessage(data, function(e) {
             console.log('Sent succesfully!');

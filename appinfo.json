@@ -1,6 +1,7 @@
 {
     "appKeys": {
-        "KEY_CURRENT_COUNT": 0
+        "KEY_CURRENT_COUNT": 0,
+        "KEY_CURRENT_TIME": 1
     },
     "capabilities": [
         ""

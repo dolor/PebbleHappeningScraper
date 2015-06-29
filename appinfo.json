@@ -1,0 +1,24 @@
+{
+    "appKeys": {
+        "KEY_CURRENT_COUNT": 0
+    },
+    "capabilities": [
+        ""
+    ],
+    "companyName": "eriksteenman@gmail.com",
+    "longName": "happ-install",
+    "projectType": "native",
+    "resources": {
+        "media": []
+    },
+    "sdkVersion": "3",
+    "shortName": "happ-install",
+    "targetPlatforms": [
+        "basalt"
+    ],
+    "uuid": "04ecfb0c-6d87-464e-aab2-096ff2271175",
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": false
+    }
+}
